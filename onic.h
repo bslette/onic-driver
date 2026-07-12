@@ -47,7 +47,8 @@ struct onic_priv {
 	unsigned long base_tx_q_handle, base_rx_q_handle;
 	struct napi_struct *napi;
 	struct rtnl_link_stats64 *tx_qstats, *rx_qstats;
-
 };
+
+void onic_set_ethtool_ops(struct net_device *netdev);
 
 #endif /* ONIC_H */

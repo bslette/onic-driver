@@ -99,8 +99,15 @@
 		add_timer(timer); \
 	} while (0)
 
-
 #endif /* timer */
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+#define del_timer timer_delete
+#define del_timer_sync timer_delete_sync
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
+#define from_timer timer_container_of
+#endif
 
 #endif /* #ifndef __QDMA_COMPAT_H */
