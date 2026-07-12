@@ -47,7 +47,20 @@ struct onic_priv {
 	unsigned long base_tx_q_handle, base_rx_q_handle;
 	struct napi_struct *napi;
 	struct rtnl_link_stats64 *tx_qstats, *rx_qstats;
-
 };
+
+void onic_set_ethtool_ops(struct net_device *netdev);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
+static inline void eth_hw_addr_set(struct net_device *dev, const u8 *addr)
+{
+	memcpy(dev->dev_addr, addr, 6);
+}
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0)
+#define netif_napi_add_weight(dev, napi, poll, weight) \
+		netif_napi_add(dev, napi, poll, weight)
+#endif
 
 #endif /* ONIC_H */

@@ -71,6 +71,9 @@ static int onic_rx_deliver(struct onic_priv *xpriv, u32 q_no, unsigned int len,
 	}
 
 	if (len <= ONIC_RX_COPY_THRES || !(netdev->features & NETIF_F_SG)) {
+		unsigned int copied = 0;
+		struct qdma_sw_sg *temp_sgl = sgl;
+
 		skb = napi_alloc_skb(&xpriv->napi[q_no], len);
 		if (unlikely(!skb)) {
 			netdev_err(netdev, "%s: napi_alloc_skb() failed\n",
@@ -78,10 +81,20 @@ static int onic_rx_deliver(struct onic_priv *xpriv, u32 q_no, unsigned int len,
 			return -ENOMEM;
 		}
 
-		skb_copy_to_linear_data(skb, page_address(c2h_sgl->pg) +
-					c2h_sgl->offset, len);
+		while (temp_sgl) {
+			if (copied < len) {
+				unsigned int copy_len = len - copied;
+				if (copy_len > temp_sgl->len)
+					copy_len = temp_sgl->len;
+				memcpy(skb->data + copied,
+				       page_address(temp_sgl->pg) + temp_sgl->offset,
+				       copy_len);
+				copied += copy_len;
+			}
+			put_page(temp_sgl->pg);
+			temp_sgl = temp_sgl->next;
+		}
 		__skb_put(skb, len);
-		put_page(c2h_sgl->pg);
 	} else {
 		unsigned int nr_frags = 0;
 		unsigned int frag_len;
@@ -227,7 +240,7 @@ static int onic_rx_poll(struct napi_struct *napi, int quota)
 	qdma_queue_update_pointers(xpriv->dev_handle, q_handle);
 
 	if (xpriv->pinfo->poll_mode || (pkt_cnt >= quota))
-		napi_reschedule(napi);
+		napi_schedule(napi);
 
 	return 0;
 }
@@ -338,8 +351,8 @@ static int onic_qdma_rx_queue_setup(struct onic_priv *xpriv)
 				   __func__, q_no, ret);
 			goto release_rx_q;
 		}
-		netif_napi_add(xpriv->netdev, &xpriv->napi[q_no], onic_rx_poll,
-			       ONIC_NAPI_WEIGHT);
+		netif_napi_add_weight(xpriv->netdev, &xpriv->napi[q_no], onic_rx_poll,
+				      ONIC_NAPI_WEIGHT);
 	}
 
 	return 0;
@@ -840,7 +853,7 @@ static int onic_set_mac_address(struct net_device *dev, void *addr)
 	netdev_info(dev, "Set MAC address to %x:%x:%x:%x:%x:%x",
 		    dev_addr[0], dev_addr[1], dev_addr[2],
 		    dev_addr[3], dev_addr[4], dev_addr[5]);
-	memcpy(dev->dev_addr, dev_addr, dev->addr_len);
+	eth_hw_addr_set(dev, dev_addr);
 	return 0;
 };
 
@@ -1194,12 +1207,14 @@ static int onic_pci_probe(struct pci_dev *pdev,
 	pci_set_drvdata(pdev, netdev);
 	netdev->netdev_ops = &onic_netdev_ops;
 	onic_set_ethtool_ops(netdev);
+	netdev->hw_features |= NETIF_F_SG;
+	netdev->features |= NETIF_F_SG;
 
 	snprintf(dev_name, IFNAMSIZ, "onic%ds%df%d",
 		 pdev->bus->number,
 		 PCI_SLOT(pdev->devfn),
 		 PCI_FUNC(pdev->devfn));
-	strlcpy(netdev->name, dev_name, sizeof(netdev->name));
+	strscpy(netdev->name, dev_name, sizeof(netdev->name));
 
 	/* Initialize driver private data */
 	xpriv = netdev_priv(netdev);
