@@ -81,18 +81,22 @@ static int onic_rx_deliver(struct onic_priv *xpriv, u32 q_no, unsigned int len,
 			return -ENOMEM;
 		}
 
-		while (temp_sgl) {
+		while (sgcnt && temp_sgl) {
 			if (copied < len) {
 				unsigned int copy_len = len - copied;
 				if (copy_len > temp_sgl->len)
 					copy_len = temp_sgl->len;
-				memcpy(skb->data + copied,
-				       page_address(temp_sgl->pg) + temp_sgl->offset,
-				       copy_len);
+				if (temp_sgl->pg) {
+					memcpy(skb->data + copied,
+					       page_address(temp_sgl->pg) + temp_sgl->offset,
+					       copy_len);
+				}
 				copied += copy_len;
 			}
-			put_page(temp_sgl->pg);
+			if (temp_sgl->pg)
+				put_page(temp_sgl->pg);
 			temp_sgl = temp_sgl->next;
+			sgcnt--;
 		}
 		__skb_put(skb, len);
 	} else {
@@ -121,12 +125,16 @@ static int onic_rx_deliver(struct onic_priv *xpriv, u32 q_no, unsigned int len,
 		while (sgcnt && c2h_sgl) {
 			frag_len = c2h_sgl->len;
 			frag_offset = c2h_sgl->offset;
-			skb_fill_page_desc(skb, nr_frags, c2h_sgl->pg, 
-					   frag_offset, frag_len);
+			if (frag_len > 0) {
+				skb_fill_page_desc(skb, nr_frags, c2h_sgl->pg, 
+						   frag_offset, frag_len);
+				nr_frags++;
+			} else {
+				put_page(c2h_sgl->pg);
+			}
 
 			sgcnt--;
 			c2h_sgl = c2h_sgl->next;
-			nr_frags++;
 		}
 
 		skb->len = len;
