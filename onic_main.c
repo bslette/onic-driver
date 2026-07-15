@@ -126,8 +126,8 @@ static int onic_rx_deliver(struct onic_priv *xpriv, u32 q_no, unsigned int len,
 			frag_len = c2h_sgl->len;
 			frag_offset = c2h_sgl->offset;
 			if (frag_len > 0) {
-				skb_fill_page_desc(skb, nr_frags, c2h_sgl->pg, 
-						   frag_offset, frag_len);
+				skb_add_rx_frag(skb, nr_frags, c2h_sgl->pg, 
+						frag_offset, frag_len, frag_len);
 				nr_frags++;
 			} else {
 				put_page(c2h_sgl->pg);
@@ -136,10 +136,6 @@ static int onic_rx_deliver(struct onic_priv *xpriv, u32 q_no, unsigned int len,
 			sgcnt--;
 			c2h_sgl = c2h_sgl->next;
 		}
-
-		skb->len = len;
-		skb->data_len = len - ONIC_RX_PULL_LEN;
-		skb->truesize += skb->data_len;
 	}
 
 	skb->protocol = eth_type_trans(skb, netdev);
