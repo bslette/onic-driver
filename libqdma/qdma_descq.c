@@ -1084,6 +1084,11 @@ int qdma_descq_alloc_resource(struct qdma_descq *descq)
 
 
 		/* freelist / rx buffers */
+		if (flq->sdesc)
+			descq_flq_free_resource(descq);
+		if (flq->pg_sdesc)
+			descq_flq_free_page_resource(descq);
+
 		rv = descq_flq_alloc_resource(descq);
 		if (rv < 0) {
 			pr_err("%s: resource allocation failed",
@@ -1094,18 +1099,20 @@ int qdma_descq_alloc_resource(struct qdma_descq *descq)
 		int i;
 		unsigned int desc_sz = get_desc_size(descq);
 
-		descq->desc_list = kcalloc(descq->conf.rngsz,
-					   sizeof(struct qdma_q_desc_list),
-					   GFP_KERNEL);
 		if (!descq->desc_list) {
-			pr_err("desc_list allocation failed.OOM");
-			goto err_out;
-		}
-		for (i = 0; i < descq->conf.rngsz; i++) {
-			int next = (i == (descq->conf.rngsz - 1)) ? 0 : (i + 1);
+			descq->desc_list = kcalloc(descq->conf.rngsz,
+						   sizeof(struct qdma_q_desc_list),
+						   GFP_KERNEL);
+			if (!descq->desc_list) {
+				pr_err("desc_list allocation failed.OOM");
+				goto err_out;
+			}
+			for (i = 0; i < descq->conf.rngsz; i++) {
+				int next = (i == (descq->conf.rngsz - 1)) ? 0 : (i + 1);
 
-			descq->desc_list[i].desc = descq->desc + (i * desc_sz);
-			descq->desc_list[i].next = &descq->desc_list[next];
+				descq->desc_list[i].desc = descq->desc + (i * desc_sz);
+				descq->desc_list[i].next = &descq->desc_list[next];
+			}
 		}
 	}
 
@@ -1115,20 +1122,22 @@ int qdma_descq_alloc_resource(struct qdma_descq *descq)
 		descq->color = 1;
 
 		/* writeback ring */
-		descq->desc_cmpt = desc_ring_alloc(xdev,
-					descq->conf.rngsz_cmpt,
-					descq->cmpt_entry_len,
-					sizeof(struct
-					       qdma_c2h_cmpt_cmpl_status),
-					&descq->desc_cmpt_bus,
-					&descq->desc_cmpt_cmpl_status);
 		if (!descq->desc_cmpt) {
-			pr_warn("dev %s, descq %s, sz %u, cmpt ring OOM.\n",
-				xdev->conf.name, descq->conf.name,
-				descq->conf.rngsz_cmpt);
-			goto err_out;
+			descq->desc_cmpt = desc_ring_alloc(xdev,
+						descq->conf.rngsz_cmpt,
+						descq->cmpt_entry_len,
+						sizeof(struct
+						       qdma_c2h_cmpt_cmpl_status),
+						&descq->desc_cmpt_bus,
+						&descq->desc_cmpt_cmpl_status);
+			if (!descq->desc_cmpt) {
+				pr_warn("dev %s, descq %s, sz %u, cmpt ring OOM.\n",
+					xdev->conf.name, descq->conf.name,
+					descq->conf.rngsz_cmpt);
+				goto err_out;
+			}
+			descq->desc_cmpt_cur = descq->desc_cmpt;
 		}
-		descq->desc_cmpt_cur = descq->desc_cmpt;
 
 	}
 
