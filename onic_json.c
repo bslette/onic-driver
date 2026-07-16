@@ -22,7 +22,7 @@ int onic_get_platform_info(char *fname, struct onic_platform_info *pinfo)
 	const char *jsonBuffer;
 	u16 length;
 	jsmn_parser parser;
-	jsmntok_t *tokens;
+	jsmntok_t *tokens = NULL;
 	u16 numTokens;
 	char parsingBuffer[PARSEBUF_LEN];
 	int i,j;
@@ -191,6 +191,7 @@ int onic_get_platform_info(char *fname, struct onic_platform_info *pinfo)
 	}
 
 func_exit:
+	kfree(tokens);
 	release_firmware(fw);
 	return err;
 }

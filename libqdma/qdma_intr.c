@@ -405,7 +405,6 @@ static void intr_context_invalidate(struct xlnx_dma_dev *xdev)
 		if (rv < 0) {
 			pr_err("Intr ctxt invalidate failed, err = %d",
 						rv);
-			return;
 		}
 		ring_entry = (xdev->intr_coal_list + i);
 		if (ring_entry) {

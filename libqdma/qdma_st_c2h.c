@@ -172,8 +172,6 @@ void descq_flq_free_page_resource(struct qdma_descq *descq)
 
 	kfree(flq->pg_sdesc);
 	flq->pg_sdesc = NULL;
-
-	memset(flq, 0, sizeof(struct qdma_flq));
 }
 
 void descq_flq_free_resource(struct qdma_descq *descq)

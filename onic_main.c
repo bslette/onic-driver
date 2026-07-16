@@ -586,6 +586,8 @@ release_queues:
 	onic_qdma_tx_queue_release(xpriv, xpriv->netdev->real_num_tx_queues);
 release_rx_queues:
 	onic_qdma_rx_queue_release(xpriv, xpriv->netdev->real_num_rx_queues);
+	kfree(xpriv->tx_qstats);
+	xpriv->tx_qstats = NULL;
 	return ret;
 }
 
@@ -1204,6 +1206,7 @@ static int onic_pci_probe(struct pci_dev *pdev,
 				   pinfo->queue_max);
 	if (!netdev) {
 		dev_err(&pdev->dev, "%s: alloc_etherdev_mq() failed\n", __func__);
+		kfree(pinfo);
 		return -ENODEV;
 	}
 

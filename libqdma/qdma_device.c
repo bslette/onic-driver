@@ -252,6 +252,8 @@ int qdma_device_init(struct xlnx_dma_dev *xdev)
 		rv = xdev->hw.qdma_init_ctxt_memory(xdev);
 		if (rv < 0) {
 			pr_err("init ctxt write failed, err %d\n", rv);
+			kfree(qdev);
+			xdev->dev_priv = NULL;
 			return xdev->hw.qdma_get_error_code(rv);
 		}
 	}
